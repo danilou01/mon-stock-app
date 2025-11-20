@@ -1,0 +1,703 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mon Stock Alimentaire : Frigo & Réserve</title>
+    <script src="https://cdn.jsdelivr.net/npm/quagga/dist/quagga.min.js"></script>
+    <style>
+        /* =========================\
+           1. VARIABLES & GLOBAL
+           ======================== */
+        :root {
+            --primary: #2563eb; 
+            --danger: #ef4444;
+            --warning: #facc15;
+            --success: #10b981;
+            --info: #3b82f6; 
+            --reserve: #6d28d9; 
+            --bg: #f3f4f6;
+            --card: #ffffff;
+            --text: #1f2937;
+            --muted: #6b7280;
+            --bg-primary-soft: #eef2f8; 
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background-color: var(--bg);
+            padding: 10px;
+            color: var(--text);
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 10px;
+        }
+        h1 {
+            color: var(--primary);
+            text-align: center;
+            margin-bottom: 20px;
+            font-size: 1.8em;
+        }
+
+        /* =========================\
+           2. SCANNER ET FORMULAIRE
+           ======================== */
+        .scanner-container {
+            position: relative;
+            background: #000;
+            border-radius: 8px;
+            overflow: hidden;
+            margin-bottom: 20px;
+            height: 0; /* Géré par JS */
+            transition: height 0.3s ease-out;
+        }
+        .scanner-container.active {
+            height: 250px; 
+        }
+        #interactive {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+        .viewport {
+            width: 100%;
+            height: 100%;
+        }
+        video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .drawingBuffer {
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+
+        .form-section {
+            background-color: var(--card);
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+            margin-bottom: 20px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: var(--text);
+        }
+        input[type="text"],
+        input[type="date"],
+        input[type="number"],
+        select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid var(--bg);
+            border-radius: 4px;
+            box-sizing: border-box;
+            background-color: var(--bg-primary-soft); 
+            font-size: 1em;
+        }
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        /* =========================\
+           3. BOUTONS UNIVERSELS
+           ======================== */
+        .btn {
+            padding: 10px 15px;
+            border: none;
+            border-radius: 4px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            flex-grow: 1;
+            text-align: center;
+        }
+        .btn-primary {
+            background-color: var(--primary);
+            color: white;
+        }
+        .btn-primary:hover {
+            background-color: #1d4ed8;
+        }
+        .btn-secondary {
+            background-color: var(--muted);
+            color: white;
+        }
+        .btn-secondary:hover {
+            background-color: #4b5563;
+        }
+
+        /* =========================\
+           4. LISTES DE STOCK
+           ======================== */
+        .stock-section {
+            background-color: var(--card);
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+            margin-bottom: 20px;
+        }
+        .stock-header {
+            padding: 15px 20px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--bg);
+        }
+        .stock-header h2 {
+            margin: 0;
+            font-size: 1.2em;
+        }
+        .stock-header span.count {
+            background-color: var(--bg);
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.9em;
+            font-weight: 700;
+        }
+        .stock-header-fridge h2 {
+            color: var(--info);
+        }
+        .stock-header-reserve h2 {
+            color: var(--reserve);
+        }
+        .stock-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        .stock-list li {
+            padding: 15px 20px;
+            border-bottom: 1px solid var(--bg);
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 10px;
+        }
+        .stock-list li:last-child {
+            border-bottom: none;
+        }
+        .item-info {
+            flex-grow: 1;
+            min-width: 150px;
+        }
+        .item-info h3 {
+            margin: 0 0 5px 0;
+            font-size: 1.1em;
+            font-weight: 600;
+        }
+        .item-info p {
+            margin: 0;
+            font-size: 0.9em;
+            color: var(--muted);
+        }
+        .dlc-days {
+            font-size: 1.1em;
+            font-weight: 700;
+            padding: 5px 10px;
+            border-radius: 4px;
+            text-align: center;
+            min-width: 80px;
+        }
+        .dlc-danger {
+            background-color: var(--danger);
+            color: white;
+        }
+        .dlc-warning {
+            background-color: var(--warning);
+            color: var(--text);
+        }
+        .dlc-success {
+            background-color: var(--success);
+            color: white;
+        }
+
+        .item-actions {
+            display: flex;
+            gap: 8px;
+        }
+        .action-btn {
+            padding: 8px 12px;
+            border: none;
+            border-radius: 4px;
+            font-size: 0.8em;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .action-btn-consume {
+            background-color: var(--info);
+            color: white;
+        }
+        .action-btn-consume:hover {
+            background-color: #3b62f6;
+        }
+        .action-btn-full-remove {
+            background-color: var(--danger);
+            color: white;
+        }
+        .action-btn-full-remove:hover {
+            background-color: #dc2626;
+        }
+
+        /* =========================\
+           5. ALERTES ET BADGES
+           ======================== */
+        .alert-section {
+            padding: 15px;
+            background-color: #fef3c7; /* Jaune clair pour alerte */
+            border: 1px solid #fde68a;
+            color: #92400e; /* Marron foncé */
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        .alert-section h3 {
+            margin-top: 0;
+            color: #78350f;
+            font-size: 1.1em;
+        }
+        .alert-list {
+            list-style-type: disc;
+            margin: 10px 0 0 20px;
+            padding: 0;
+        }
+        .badge {
+            display: inline-block;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.7em;
+            font-weight: 700;
+            margin-left: 5px;
+            text-transform: uppercase;
+        }
+        .badge-danger {
+            background-color: var(--danger);
+            color: white;
+        }
+        .badge-warning {
+            background-color: var(--warning);
+            color: var(--text);
+        }
+        .badge-reserve {
+            background-color: var(--reserve);
+            color: white;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Mon Stock Alimentaire 🧺</h1>
+
+    <div class="form-section">
+        <button class="btn btn-primary" id="scanBtn">Lancer le Scan / Saisie Manuelle</button>
+
+        <div id="scannerContainer" class="scanner-container">
+            <div id="interactive" class="viewport"></div>
+        </div>
+        
+        <form id="addItemForm" style="display: none;">
+            <div class="form-group">
+                <label for="barcode">Code-barres (scanné) :</label>
+                <input type="text" id="barcodeInput" placeholder="Saisi automatiquement ou manuellement">
+            </div>
+
+            <div class="form-group">
+                <label for="productName">Nom du Produit :</label>
+                <input type="text" id="productName" required placeholder="Ex: Yaourt Nature">
+            </div>
+
+            <div class="form-group">
+                <label for="dlc">Date Limite de Consommation (DLC) :</label>
+                <input type="date" id="dlcInput" required>
+            </div>
+
+            <div class="form-group">
+                <label for="quantity">Quantité :</label>
+                <input type="number" id="quantity" value="1" min="1" required>
+            </div>
+
+            <div class="form-group">
+                <label for="location">Emplacement :</label>
+                <select id="location" required>
+                    <option value="fridge">Frigo (Frais)</option>
+                    <option value="reserve">Réserve (Sec/Longue durée)</option>
+                </select>
+            </div>
+
+            <div class="btn-group">
+                <button type="submit" class="btn btn-primary">Ajouter au Stock</button>
+            </div>
+        </form>
+    </div>
+
+    <div id="reorderAlerts" class="alert-section" style="display:none;">
+        <h3>⚠️ Alertes de Stock et DLC Proches</h3>
+        <ul id="alertList" class="alert-list">
+            </ul>
+    </div>
+
+
+    <div class="stock-section">
+        <div class="stock-header stock-header-fridge" onclick="toggleStock('fridge')">
+            <h2>Frigo</h2>
+            <span id="fridgeCount" class="count">0</span>
+            <span id="fridgeIcon" style="font-size: 1.5em; margin-left: 10px;">►</span>
+        </div>
+        <ul id="fridgeList" class="stock-list" style="display:none;">
+            </ul>
+    </div>
+
+    <div class="stock-section">
+        <div class="stock-header stock-header-reserve" onclick="toggleStock('reserve')">
+            <h2>Réserve</h2>
+            <span id="reserveCount" class="count">0</span>
+            <span id="reserveIcon" style="font-size: 1.5em; margin-left: 10px;">►</span>
+        </div>
+        <ul id="reserveList" class="stock-list" style="display:none;">
+            </ul>
+    </div>
+
+</div>
+
+<script>
+    // --- VARIABLES GLOBALES ---
+    let stock = JSON.parse(localStorage.getItem('foodStock')) || [];
+    let nextId = stock.reduce((max, item) => Math.max(max, item.id), 0) + 1;
+    let scannerIsRunning = false;
+
+    // --- ÉLÉMENTS DU DOM ---
+    const scannerContainer = document.getElementById('scannerContainer');
+    const scanBtn = document.getElementById('scanBtn');
+    const addItemForm = document.getElementById('addItemForm');
+    const productNameInput = document.getElementById('productName');
+    const dlcInput = document.getElementById('dlcInput');
+    const quantityInput = document.getElementById('quantity');
+    const locationInput = document.getElementById('location');
+    const barcodeInput = document.getElementById('barcodeInput');
+    const fridgeList = document.getElementById('fridgeList');
+    const reserveList = document.getElementById('reserveList');
+    const fridgeCount = document.getElementById('fridgeCount');
+    const reserveCount = document.getElementById('reserveCount');
+    const fridgeIcon = document.getElementById('fridgeIcon');
+    const reserveIcon = document.getElementById('reserveIcon');
+    const reorderAlerts = document.getElementById('reorderAlerts');
+    const alertList = document.getElementById('alertList');
+
+    // --- FONCTIONS DE BASE ---
+
+    /** SAUVEGARDE LE STOCK EN LOCALSTORAGE */
+    function saveStock() {
+        localStorage.setItem('foodStock', JSON.stringify(stock));
+    }
+
+    /** RETOURNE LE NOMBRE DE JOURS RESTANTS AVANT LA DLC */
+    function getDaysRemaining(dlc) {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0); // Important pour ne compter que les jours complets
+        const dlcDate = new Date(dlc);
+        dlcDate.setHours(0, 0, 0, 0);
+        
+        // Calcul du nombre de millisecondes par jour
+        const msPerDay = 1000 * 60 * 60 * 24; 
+        
+        // Calcul de la différence en jours
+        const diffTime = dlcDate.getTime() - today.getTime();
+        const diffDays = Math.ceil(diffTime / msPerDay);
+        
+        return diffDays;
+    }
+
+    // --- GESTION DU SCANNER (QUAGGA) ---
+
+    /** DÉMARRE OU ARRÊTE LE SCANNER */
+    scanBtn.addEventListener('click', () => {
+        addItemForm.style.display = 'block'; // Affiche toujours le formulaire
+        
+        if (!scannerIsRunning) {
+            startScanner();
+            scanBtn.textContent = 'Arrêter le Scan et Saisir Manuellement';
+        } else {
+            stopScanner();
+            scanBtn.textContent = 'Lancer le Scan / Saisie Manuelle';
+        }
+    });
+
+    /** DÉMARRE LE SCANNER */
+    function startScanner() {
+        if (scannerIsRunning) return;
+
+        scannerContainer.classList.add('active'); // Rend la zone de la caméra visible
+        
+        Quagga.init({
+            inputStream : {
+                name : "Live",
+                type : "LiveStream",
+                target: document.querySelector('#interactive'),
+                constraints: {
+                    width: 640,
+                    height: 480,
+                    facingMode: "environment" // Utilise la caméra arrière
+                },
+            },
+            decoder : {
+                readers : ["ean_reader", "ean_8_reader", "upc_reader", "code_128_reader"]
+            }
+        }, function(err) {
+            if (err) {
+                console.error(err);
+                barcodeInput.value = 'Erreur: Accès caméra refusé ou non disponible';
+                stopScanner(); // Arrête Quagga en cas d'erreur de caméra
+                return;
+            }
+            Quagga.start();
+            scannerIsRunning = true;
+            console.log("Scanner démarré.");
+        });
+
+        // Gestion de la détection
+        Quagga.onDetected(function(result) {
+            const code = result.codeResult.code;
+            barcodeInput.value = code; // Affiche le code
+            // Ici, vous pourriez faire un appel API pour récupérer le nom du produit
+            // Si le code est valide, on peut arrêter le scan
+            if (code) {
+                stopScanner();
+                scanBtn.textContent = 'Scan Terminé (Code: ' + code + ')';
+                // Focus sur le nom du produit pour la saisie manuelle
+                productNameInput.focus();
+            }
+        });
+    }
+
+    /** ARRÊTE LE SCANNER */
+    function stopScanner() {
+        if (scannerIsRunning) {
+            Quagga.stop();
+            scannerIsRunning = false;
+            scannerContainer.classList.remove('active'); // Cache la zone de la caméra
+            console.log("Scanner arrêté.");
+        }
+    }
+
+
+    // --- GESTION DES ARTICLES DU STOCK ---
+
+    /** AJOUTE UN ARTICLE AU STOCK */
+    addItemForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+
+        const name = productNameInput.value.trim();
+        const dlc = dlcInput.value;
+        const quantity = parseInt(quantityInput.value, 10);
+        const location = locationInput.value;
+        const barcode = barcodeInput.value.trim();
+
+        if (!name || !dlc || quantity < 1) {
+            alert("Veuillez remplir tous les champs obligatoires correctement.");
+            return;
+        }
+
+        // 1. Chercher un article existant avec le même nom, DLC et emplacement
+        const existingItem = stock.find(item => 
+            item.name.toLowerCase() === name.toLowerCase() && 
+            item.dlc === dlc &&
+            item.location === location
+        );
+
+        if (existingItem) {
+            // 2. Si l'article existe, incrémenter la quantité
+            existingItem.quantity += quantity;
+        } else {
+            // 3. Sinon, ajouter un nouvel article
+            const newItem = {
+                id: nextId++,
+                name: name,
+                dlc: dlc,
+                quantity: quantity,
+                location: location,
+                barcode: barcode
+            };
+            stock.push(newItem);
+        }
+
+        saveStock();
+        renderStock();
+
+        // Réinitialiser le formulaire (sauf l'emplacement qui est souvent le même)
+        productNameInput.value = '';
+        dlcInput.value = '';
+        quantityInput.value = '1';
+        barcodeInput.value = '';
+        productNameInput.focus();
+
+        if (scannerIsRunning) {
+            stopScanner();
+            scanBtn.textContent = 'Lancer le Scan / Saisie Manuelle';
+        }
+    });
+
+    /** DIMINUE LA QUANTITÉ D'UN ARTICLE (-1) */
+    window.consumeItem = function(id) {
+        const item = stock.find(i => i.id === id);
+        if (item && item.quantity > 0) {
+            item.quantity--;
+            if (item.quantity === 0) {
+                // Si la quantité est à zéro, retirer l'article complètement
+                stock = stock.filter(i => i.id !== id);
+            }
+            saveStock();
+            renderStock();
+        }
+    }
+
+    /** RETIRE COMPLÈTEMENT UN ARTICLE */
+    window.deleteItem = function(id) {
+        if (confirm("Êtes-vous sûr de vouloir retirer TOUS les articles de ce type ?")) {
+            stock = stock.filter(item => item.id !== id);
+            saveStock();
+            renderStock();
+        }
+    }
+
+    // --- GESTION DE L'AFFICHAGE ET DES ALERTES ---
+
+    /** AFFICHE LES ALERTES (DLC Proche et Stock Bas) */
+    function renderReorderAlerts() {
+        alertList.innerHTML = '';
+        const today = new Date();
+        const alerts = [];
+
+        // Tri du stock : DLC la plus proche d'abord
+        const sortedStock = [...stock].sort((a, b) => new Date(a.dlc) - new Date(b.dlc));
+
+        sortedStock.forEach(item => {
+            const days = getDaysRemaining(item.dlc);
+            
+            // Alerte DLC Proche (7 jours pour frigo, 30 jours pour réserve)
+            if (item.location === 'fridge' && days <= 7 && days >= 0) {
+                alerts.push(`FRIGO : ${item.name} (Reste ${days} jours pour ${item.quantity})`);
+            } else if (item.location === 'reserve' && days <= 30 && days >= 0) {
+                 alerts.push(`RÉSERVE : ${item.name} (Reste ${days} jours pour ${item.quantity})`);
+            }
+            
+            // Alerte DLC Dépassée
+            if (days < 0) {
+                alerts.push(`⚠️ PÉRIMÉ : ${item.name} depuis ${Math.abs(days)} jours (${item.quantity} unités)`);
+            }
+        });
+
+        if (alerts.length > 0) {
+            alerts.forEach(alertText => {
+                const li = document.createElement('li');
+                li.textContent = alertText;
+                alertList.appendChild(li);
+            });
+            reorderAlerts.style.display = 'block';
+        } else {
+            reorderAlerts.style.display = 'none';
+        }
+    }
+
+
+    /** BASCULE L'AFFICHAGE D'UNE LISTE (Frigo ou Réserve) */
+    window.toggleStock = function(location) {
+        const listElement = location === 'fridge' ? fridgeList : reserveList;
+        const iconElement = location === 'fridge' ? fridgeIcon : reserveIcon;
+
+        if (listElement.style.display === 'none' || listElement.style.display === '') {
+            listElement.style.display = 'block';
+            iconElement.textContent = '▼';
+        } else {
+            listElement.style.display = 'none';
+            iconElement.textContent = '►';
+        }
+    }
+
+
+    /** REND LA LISTE DES ARTICLES POUR UN EMPLACEMENT DONNÉ */
+    function renderItems(listElement, location, countElement) {
+        // Sauvegarde l'état actuel avant de vider la liste
+        const isCurrentlyVisible = listElement.style.display === 'block';
+
+        listElement.innerHTML = '';
+        const filteredStock = stock.filter(item => item.location === location);
+        countElement.textContent = filteredStock.length;
+
+        // Tri : DLC la plus proche en premier
+        filteredStock.sort((a, b) => new Date(a.dlc) - new Date(b.dlc));
+
+        filteredStock.forEach(item => {
+            const days = getDaysRemaining(item.dlc);
+            let dlcClass = 'dlc-success';
+            let daysText;
+
+            if (days < 0) {
+                dlcClass = 'dlc-danger';
+                daysText = `PÉRIMÉ`;
+            } else if (days <= (location === 'fridge' ? 7 : 30)) {
+                dlcClass = 'dlc-warning';
+                daysText = `J-${days}`;
+            } else {
+                daysText = `${days} jours`;
+            }
+
+            // Badge pour les quantités faibles (personnalisable)
+            const stockAlertBadge = item.quantity <= 2 ? `<span class="badge badge-warning">Stock Bas</span>` : '';
+
+            const listItem = document.createElement('li');
+            listItem.innerHTML = `
+                <div class="item-info">
+                    <h3>${item.name} ${stockAlertBadge}</h3>
+                    <p>Quantité: ${item.quantity} | DLC : <span class="dlc">${new Date(item.dlc).toLocaleDateString('fr-FR')}</span></p>
+                </div>
+                <div class="dlc-days ${dlcClass}">${daysText}</div>
+                <div class="item-actions">
+                    <button class="action-btn action-btn-consume" onclick="consumeItem(${item.id})">
+                        Consommer (-1)
+                    </button>
+                    <button class="action-btn action-btn-full-remove" onclick="deleteItem(${item.id})">
+                        Retirer tout
+                    </button>
+                </div>
+            `;
+            listElement.appendChild(listItem);
+        });
+        
+        // Maintient l'état actuel (caché ou visible) lors du rafraîchissement
+        if (isCurrentlyVisible) {
+            listElement.style.display = 'block';
+            iconElement.textContent = '▼';
+        } else {
+            listElement.style.display = 'none';
+            iconElement.textContent = '►';
+        }
+    }
+
+    /** REND L'ENSEMBLE DU STOCK (Frigo et Réserve) */
+    function renderStock() {
+        renderReorderAlerts(); 
+        renderItems(fridgeList, 'fridge', fridgeCount);
+        renderItems(reserveList, 'reserve', reserveCount);
+    }
+
+    // --- Initialisation ---
+    // Fixe la date minimale du sélecteur de date à aujourd'hui
+    dlcInput.setAttribute('min', new Date().toISOString().split('T')[0]);
+    renderStock();
+
+</script>
+
+</body>
+</html>
