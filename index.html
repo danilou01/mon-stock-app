@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Mon Stock Alimentaire</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #f0f2f5;
+  --surface: #ffffff;
+  --surface2: #f7f8fa;
+  --border: #e5e7eb;
+  --primary: #2563eb;
+  --primary-light: #dbeafe;
+  --primary-dark: #1d4ed8;
+  --reserve: #7c3aed;
+  --reserve-light: #ede9fe;
+  --danger: #dc2626;
+  --danger-light: #fee2e2;
+  --warning: #d97706;
+  --warning-light: #fef3c7;
+  --success: #16a34a;
+  --success-light: #dcfce7;
+  --text: #111827;
+  --text2: #374151;
+  --muted: #6b7280;
+  --radius: 12px;
+  --radius-sm: 8px;
+  --shadow: 0 1px 3px rgba(0,0,0,.08), 0 4px 16px rgba(0,0,0,.06);
+  --shadow-lg: 0 4px 6px rgba(0,0,0,.05), 0 10px 40px rgba(0,0,0,.1);
+}
+
+html { font-size: 16px; }
+
+body {
+  background: var(--bg);
+  font-family: 'DM Sans', sans-serif;
+  color: var(--text);
+  min-height: 100vh;
+  padding: 16px;
+  padding-bottom: 40px;
+}
+
+.app { max-width: 560px; margin: 0 auto; }
+
+.header { text-align: center; padding: 24px 0 20px; }
+.header h1 { font-size: 26px; font-weight: 700; color: var(--text); letter-spacing: -.5px; }
+.header h1 span { color: var(--primary); }
+.header p { font-size: 13px; color: var(--muted); margin-top: 4px; }
+
+.card { background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow); padding: 20px; margin-bottom: 16px; }
+
+.form-label { display: block; font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 6px; }
+
+.input-wrap { position: relative; }
+.input-wrap .spinner {
+  position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
+  width: 18px; height: 18px; border: 2px solid var(--border); border-top-color: var(--primary);
+  border-radius: 50%; animation: spin .7s linear infinite; display: none;
+}
+.input-wrap.loading .spinner { display: block; }
+@keyframes spin { to { transform: translateY(-50%) rotate(360deg); } }
+
+input[type="text"], input[type="number"], input[type="date"], select {
+  width: 100%; padding: 11px 14px; border: 1.5px solid var(--border); border-radius: var(--radius-sm);
+  font-family: inherit; font-size: 15px; color: var(--text); background: var(--surface); outline: none;
+  transition: border-color .15s, box-shadow .15s; -webkit-appearance: none; appearance: none;
+}
+input:focus, select:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(37,99,235,.12); }
+
+.form-row { display: grid; grid-template-columns: 1fr 90px; gap: 10px; margin-top: 10px; }
+.field { margin-top: 10px; }
+.field:first-child { margin-top: 0; }
+
+.btn { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; padding: 12px 16px; border: none; border-radius: var(--radius-sm); font-family: inherit; font-size: 15px; font-weight: 600; cursor: pointer; transition: all .15s; -webkit-tap-highlight-color: transparent; }
+.btn:active { transform: scale(.98); }
+.btn-primary { background: var(--primary); color: white; }
+.btn-outline { background: transparent; color: var(--primary); border: 1.5px solid var(--primary); }
+.btn-sm { padding: 7px 12px; font-size: 13px; border-radius: 6px; width: auto; flex: 1; }
+.btn-danger-sm { background: var(--danger-light); color: var(--danger); }
+.btn-ghost-sm { background: var(--surface2); color: var(--text2); }
+.scan-btn { background: linear-gradient(135deg, #1e40af, #2563eb); color: white; box-shadow: 0 2px 8px rgba(37,99,235,.3); }
+
+#scanner-wrap { display: none; margin-top: 14px; border-radius: var(--radius-sm); overflow: hidden; position: relative; background: #000; }
+#scanner-wrap.active { display: block; }
+#scanner-video { width: 100%; max-height: 260px; object-fit: cover; display: block; }
+.scanner-overlay { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; pointer-events: none; }
+.scanner-frame { width: 70%; height: 120px; border: 2px solid rgba(255,255,255,.7); border-radius: 8px; position: relative; }
+.scanner-frame::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; background: var(--primary); animation: scan 1.8s ease-in-out infinite; box-shadow: 0 0 8px var(--primary); }
+@keyframes scan { 0%,100% { top: 0; } 50% { top: calc(100% - 2px); } }
+.scanner-hint { color: white; font-size: 12px; margin-top: 12px; text-shadow: 0 1px 3px rgba(0,0,0,.8); }
+.scanner-close { position: absolute; top: 10px; right: 10px; background: rgba(0,0,0,.5); color: white; border: none; border-radius: 50%; width: 34px; height: 34px; font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center; pointer-events: all; }
+
+#toast-container { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 9999; display: flex; flex-direction: column; gap: 8px; align-items: center; width: calc(100% - 32px); max-width: 400px; pointer-events: none; }
+.toast { background: var(--text); color: white; padding: 12px 18px; border-radius: var(--radius-sm); font-size: 14px; font-weight: 500; box-shadow: var(--shadow-lg); animation: slideUp .25s ease; width: 100%; text-align: center; }
+.toast.success { background: var(--success); }
+.toast.warning { background: var(--warning); }
+.toast.error   { background: var(--danger);  }
+@keyframes slideUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+
+.section-header { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow); cursor: pointer; user-select: none; -webkit-tap-highlight-color: transparent; margin-bottom: 8px; }
+.section-title { display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 15px; }
+.section-badge { background: var(--primary-light); color: var(--primary); border-radius: 20px; padding: 2px 9px; font-size: 12px; font-weight: 700; font-family: 'DM Mono', monospace; }
+.section-badge.reserve { background: var(--reserve-light); color: var(--reserve); }
+.chevron { color: var(--muted); font-size: 13px; transition: transform .2s; }
+.chevron.open { transform: rotate(180deg); }
+.stock-list { display: none; list-style: none; margin-bottom: 8px; }
+.stock-list.open { display: block; }
+
+.item-card { background: var(--surface); border-radius: var(--radius); padding: 14px 16px; margin-bottom: 8px; border-left: 4px solid var(--primary); box-shadow: var(--shadow); }
+.item-card.reserve { border-left-color: var(--reserve); }
+.item-card.expired { border-left-color: var(--danger); background: #fff8f8; }
+.item-card.expiring { border-left-color: var(--warning); background: #fffbf0; }
+.item-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+.item-name { font-weight: 600; font-size: 15px; color: var(--text); word-break: break-word; display: flex; flex-direction: column; }
+.item-code-small { font-size: 11px; font-family: 'DM Mono', monospace; color: var(--muted); font-weight: 400; margin-top: 2px; }
+.item-qty { background: var(--primary-light); color: var(--primary); border-radius: 6px; padding: 2px 9px; font-size: 13px; font-weight: 700; font-family: 'DM Mono', monospace; white-space: nowrap; flex-shrink: 0; }
+.item-meta { font-size: 12px; color: var(--muted); margin-top: 4px; display: flex; align-items: center; gap: 6px; }
+.dlc-badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: 500; font-family: 'DM Mono', monospace; }
+.dlc-badge.ok { background: var(--success-light); color: var(--success); }
+.dlc-badge.warn { background: var(--warning-light); color: var(--warning); }
+.dlc-badge.exp { background: var(--danger-light); color: var(--danger); }
+.item-actions { display: flex; gap: 8px; margin-top: 12px; }
+
+.stats-bar { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 16px; }
+.stat-chip { background: var(--surface); border-radius: var(--radius-sm); padding: 12px; text-align: center; box-shadow: var(--shadow); }
+.stat-chip .val { font-size: 22px; font-weight: 700; font-family: 'DM Mono', monospace; color: var(--text); }
+.stat-chip .lbl { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+.modal-backdrop { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 1000; align-items: center; justify-content: center; padding: 20px; }
+.modal-backdrop.open { display: flex; }
+.modal { background: var(--surface); border-radius: var(--radius); padding: 24px; width: 100%; max-width: 340px; box-shadow: var(--shadow-lg); }
+.modal-actions { display: flex; gap: 10px; margin-top: 20px; }
+</style>
+</head>
+
+<body>
+<div class="app">
+  <div class="header">
+    <h1>🥫 Mon <span>Stock</span></h1>
+    <p>Données stockées localement</p>
+  </div>
+
+  <div class="stats-bar" id="stats-bar">
+    <div class="stat-chip"><div class="val" id="stat-total">0</div><div class="lbl">Articles</div></div>
+    <div class="stat-chip"><div class="val" id="stat-warn" style="color:var(--warning)">0</div><div class="lbl">Bientôt</div></div>
+    <div class="stat-chip"><div class="val" id="stat-exp" style="color:var(--danger)">0</div><div class="lbl">Périmés</div></div>
+  </div>
+
+  <div class="card">
+    <button class="btn scan-btn" id="scan-btn" onclick="toggleScanner()">
+      <span>📷</span> Scanner un code-barres
+    </button>
+
+    <div id="scanner-wrap">
+      <video id="scanner-video" playsinline autoplay muted></video>
+      <div class="scanner-overlay"><div class="scanner-frame"></div></div>
+      <button class="scanner-close" onclick="stopScanner()">✕</button>
+    </div>
+
+    <div class="field">
+      <label class="form-label">Nom du produit</label>
+      <div class="input-wrap" id="name-wrap">
+        <input type="text" id="f-name" placeholder="Ex: Lait, Riz..." autocomplete="off">
+        <div class="spinner"></div>
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div><label class="form-label">Date limite</label><input type="date" id="f-dlc"></div>
+      <div><label class="form-label">Qté</label><input type="number" id="f-qty" value="1" min="1"></div>
+    </div>
+
+    <div class="field">
+      <label class="form-label">Emplacement</label>
+      <select id="f-loc"><option value="fridge">🧊 Frigo</option><option value="reserve">📦 Réserve</option></select>
+    </div>
+
+    <div class="field" style="margin-top:20px">
+      <button class="btn btn-primary" onclick="addItem()">➕ Ajouter au stock</button>
+    </div>
+  </div>
+
+  <div style="position:relative; margin-bottom:15px">
+    <input type="text" id="f-search" placeholder="🔍 Rechercher..." oninput="render()" style="padding-left:40px">
+  </div>
+
+  <div class="section-header" onclick="toggleSection('fridge')">
+    <div class="section-title"><span>🧊</span> Frigo <span class="section-badge" id="badge-fridge">0</span></div>
+    <span class="chevron open" id="chev-fridge">▼</span>
+  </div>
+  <ul class="stock-list open" id="list-fridge"></ul>
+
+  <div class="section-header" onclick="toggleSection('reserve')">
+    <div class="section-title"><span>📦</span> Réserve <span class="section-badge reserve" id="badge-reserve">0</span></div>
+    <span class="chevron open" id="chev-reserve">▼</span>
+  </div>
+  <ul class="stock-list open" id="list-reserve"></ul>
+</div>
+
+<div class="modal-backdrop" id="modal" onclick="closeModal(event)">
+  <div class="modal">
+    <h3 id="modal-title">Confirmer</h3>
+    <p id="modal-msg" style="margin-top:10px; color:var(--muted)"></p>
+    <div class="modal-actions">
+      <button class="btn btn-outline" style="flex:1" onclick="closeModal()">Annuler</button>
+      <button class="btn" id="modal-confirm" style="flex:1;background:var(--danger);color:white">Confirmer</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast-container"></div>
+
+<script src="https://unpkg.com/@zxing/library@latest/umd/index.min.js"></script>
+
+<script>
+const KEY = "STOCK_APP_V3";
+let items = JSON.parse(localStorage.getItem(KEY) || "[]");
+
+function save() { localStorage.setItem(KEY, JSON.stringify(items)); }
+
+function toast(msg, type = "") {
+  const c = document.getElementById("toast-container");
+  const el = document.createElement("div");
+  el.className = "toast " + type;
+  el.textContent = msg;
+  c.appendChild(el);
+  setTimeout(() => { el.style.opacity = "0"; setTimeout(() => el.remove(), 300); }, 2500);
+}
+
+function daysUntil(dlc) {
+  const diff = new Date(dlc + "T00:00:00") - new Date().setHours(0,0,0,0);
+  return Math.round(diff / 86400000);
+}
+
+function addItem() {
+  const n = document.getElementById("f-name").value.trim();
+  const d = document.getElementById("f-dlc").value;
+  const q = parseInt(document.getElementById("f-qty").value, 10);
+  const l = document.getElementById("f-loc").value;
+
+  if (!n || !d) { toast("Nom et Date requis", "warning"); return; }
+
+  items.push({ id: Date.now(), n, d, q, l });
+  save(); render();
+  document.getElementById("f-name").value = "";
+  toast("Ajouté !", "success");
+}
+
+function consume(id) {
+  const i = items.find(x => x.id === id);
+  if (i.q > 1) i.q--; else items = items.filter(x => x.id !== id);
+  save(); render();
+}
+
+function removeAll(id) {
+  items = items.filter(x => x.id !== id);
+  save(); render();
+}
+
+function toggleSection(loc) {
+  document.getElementById("list-"+loc).classList.toggle("open");
+  document.getElementById("chev-"+loc).classList.toggle("open");
+}
+
+function render() {
+  const s = document.getElementById("f-search").value.toLowerCase();
+  const filtered = items.filter(i => i.n.toLowerCase().includes(s));
+
+  let t = 0, w = 0, e = 0;
+  items.forEach(i => { t += i.q; const d = daysUntil(i.d); if (d < 0) e++; else if (d <= 3) w++; });
+  document.getElementById("stat-total").textContent = t;
+  document.getElementById("stat-warn").textContent = w;
+  document.getElementById("stat-exp").textContent = e;
+
+  ["fridge", "reserve"].forEach(loc => {
+    const ul = document.getElementById("list-" + loc);
+    const sub = filtered.filter(i => i.l === loc).sort((a,b) => a.d.localeCompare(b.d));
+    document.getElementById("badge-" + loc).textContent = sub.reduce((acc,i)=>acc+i.q, 0);
+    
+    ul.innerHTML = sub.map(i => {
+      const d = daysUntil(i.d);
+      const cls = d < 0 ? "expired" : d <= 3 ? "expiring" : "";
+      
+      // Séparation visuelle du Code et du Nom pour l'affichage
+      const parts = i.n.split(' - ');
+      const displayName = parts.length > 1 ? parts.slice(1).join(' - ') : parts[0];
+      const displayCode = parts.length > 1 ? `<span class="item-code-small">Ref: ${parts[0]}</span>` : '';
+
+      return `
+        <li class="item-card ${loc==='reserve'?'reserve':''} ${cls}">
+          <div class="item-header">
+            <span class="item-name">${displayName}${displayCode}</span>
+            <span class="item-qty">× ${i.q}</span>
+          </div>
+          <div class="item-meta">
+            <span class="dlc-badge ${d<0?'exp':d<=3?'warn':'ok'}">${d<0?'⚠️ Exp':d<=3?'⏰ Proche':'✅'} ${i.d}</span>
+          </div>
+          <div class="item-actions">
+            <button class="btn btn-sm btn-ghost-sm" onclick="consume(${i.id})">➖ 1</button>
+            <button class="btn btn-sm btn-danger-sm" onclick="removeAll(${i.id})">🗑 Retirer</button>
+          </div>
+        </li>`;
+    }).join("");
+  });
+}
+
+// SCANNER LOGIC
+let codeReader = new ZXing.BrowserMultiFormatReader();
+let scannerActive = false;
+
+async function toggleScanner() {
+  if (scannerActive) { stopScanner(); return; }
+  try {
+    const devices = await codeReader.listVideoInputDevices();
+    const backCam = devices.find(d => /back|rear|environment/i.test(d.label)) || devices[0];
+    document.getElementById("scanner-wrap").classList.add("active");
+    scannerActive = true;
+    
+    codeReader.decodeFromVideoDevice(backCam.deviceId, 'scanner-video', (result, err) => {
+      if (result) {
+        if (navigator.vibrate) navigator.vibrate(100);
+        stopScanner();
+        lookupBarcode(result.getText());
+      }
+    });
+  } catch(e) { toast("Erreur caméra", "error"); }
+}
+
+function stopScanner() {
+  codeReader.reset();
+  document.getElementById("scanner-wrap").classList.remove("active");
+  scannerActive = false;
+}
+
+async function lookupBarcode(code) {
+  const wrap = document.getElementById("name-wrap");
+  const input = document.getElementById("f-name");
+  wrap.classList.add("loading");
+  input.value = code; // Par défaut on met le code
+
+  try {
+    const res = await fetch(`https://world.openfoodfacts.org/api/v0/product/${code}.json`);
+    const data = await res.json();
+    if (data.status === 1) {
+      const p = data.product;
+      const name = p.product_name_fr || p.product_name || "";
+      if (name) {
+        // ICI : On combine Code + Nom
+        input.value = `${code} - ${name}`;
+        toast("Produit trouvé !", "success");
+      }
+    } else {
+      toast("Code inconnu", "warning");
+    }
+  } catch(e) { toast("Erreur réseau", "warning"); }
+  finally { 
+    wrap.classList.remove("loading"); 
+    document.getElementById("f-dlc").focus();
+  }
+}
+
+document.getElementById("f-dlc").value = new Date().toISOString().split("T")[0];
+render();
+</script>
+</body>
+</html>
